@@ -1,9 +1,11 @@
 # nba_project_stats
 Web scraping to have all NBA data to be able to do Machine Learning and create a interactive Dashboard in Power BI. 
+
 **- NBA_scrap1_seasons : ** 
 First of all, we use the module playwright to extract the standing html sites for each month of each seasons we are interessed in. 
 The html files are saved in the local windows folder defined by the variable "STANDINGS_DIR". 
-After that the function scrape_game has been created to enter in each .html sites present into the standing folder and enter in every single game to save the box_score page into a .html file in the local windows folder defined by the variable "GAMES_DIR". 
+After that the function scrape_game has been created to enter in each .html sites present into the standing folder and enter in every single game to save the box_score page into a .html file in the local windows folder defined by the variable "GAMES_DIR".
+
 **- NBA_scrap2_games : **
 This script is scraping 3 tables (Line Score and basic stats for both teams) from the box score .html files saved in the games folder.
 After that we created some functions to create final dataframes. These df are saved into a google drive folder. 
@@ -14,11 +16,14 @@ player_name	MP	FG	FGA	FG_per	_3P	_3PA	_3P_per	FT	FTA	FT_per	ORB	DRB	TRB	AST	STL	
 - nba_calendar() : Creating a calendar with 4 columns :
   Date	Away	Home	Arena
 - write_google_sheet() : Using API google drive with gspread and oauth2client.service_account to write the dataframes into the sheets with the right url.
+  
 **- NBA_scrap3_teams : **
 This script is saving the Team "Roster and Stats" page for each NBA teams(30) in a local windows folder defined by the variable "TEAMS_DIR".
+
 **- NBA_scrap4_roster_injuries : **
 This script is scraping 2 tables (Roster and Injury Report) from the team .html files saved in the teams folder.
 After that we created some functions to create final dataframes. These df are saved into a google drive folder.
+
 **- Machine_learning_stats : **
 This script is calculating some KPIs and put them into dataframes saved into several google drive sheets.
 - players_deviations() : Calculating standard variations for each player who played at less 2 games.

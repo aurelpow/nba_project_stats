@@ -8,15 +8,27 @@ import datetime
 import unidecode
 import io
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 startTime = datetime.now()
 
+## Identifying with google API to write the final database to a google sheet : 
+    # Specify the path to your credentials JSON file
+json_keyfile =  "C:/Users/aureb/OneDrive - Sport-Data/Documents/COURS/DATABIRD/PROJECT/imposing-bee-389610-823a1fac476d.json"
+    # Define the scope
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    # Authenticate using the credentials
+creds = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
+client = gspread.authorize(creds)
 
-GAMES_DIR = r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\games' # Final destination for the games .html files
+
+## Creating variables : 
+GAMES_DIR = r'C:\Users\aureb\OneDrive - Sport-Data\Documents\COURS\DATABIRD\PROJECT\data\games' # Final destination for the games .html files
 box_scores = os.listdir(GAMES_DIR)
 box_scores = [os.path.join(GAMES_DIR, f) for f in box_scores if f.endswith(".html")]
 
 
-# Create a function to "clean" the html code of the game page before extracting the tables we need  
+## Create a function to "clean" the html code of the game page before extracting the tables we need  
 def parse_html(soup_box_score):
     try:
         with open(soup_box_score, 'r', encoding='utf-8') as f:
@@ -30,7 +42,7 @@ def parse_html(soup_box_score):
     except Exception as e:
         print(f"An error occurred while reading the file: {e}")
 
-# function to have the final result of the game : 
+## Crating a function to have the final result of the game : 
 def read_line_score(soup) : 
     line_score = pd.read_html(io.StringIO(str(soup)), attrs={'id': 'line_score'})[0]
     cols = list(line_score.columns)#create a list to modify columns name
@@ -40,7 +52,7 @@ def read_line_score(soup) :
     line_score = line_score[["team", "total"]]#we only keep the teams and total columns
     return line_score
 
-# function to have the box_score table in a numeric version
+## Creating a function to have the box_score table in a numeric version
 def read_stats(soup, team, stat):
     df = pd.read_html(io.StringIO(str(soup)), attrs={"id" : f"box-{team}-game-{stat}"},index_col = 0)[0]
     for i in [i for i in list(range(len(df.columns))) if i not in [0,1]]:
@@ -125,6 +137,7 @@ nba_db["FG"] = nba_db["FG"].astype(float)
 nba_db["date"] = pd.to_datetime(nba_db["date"])
 # Clean and prepare data
 nba_db = nba_db.drop_duplicates()
+nba_db.dropna(subset=['MP'], inplace=True)
 nba_db["A_score"] = nba_db["A_score"].astype(int)
 nba_db["H_score"] = nba_db["H_score"].astype(int)
 #Rename player names column : 
@@ -136,7 +149,41 @@ nba_db["player_name"] = nba_db["player_name"].apply(unidecode.unidecode)
 #rename the columns : 
 nba_db = nba_db.rename(columns={'FG%': 'FG_per', '3P%': '_3P_per','FT%': 'FT_per','+/-': 'plus_minus',
                                 '3P': '_3P','3PA': '_3PA'})
-# Export the database into a csv file :
-nba_db.to_csv(r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\nba_db.csv', index=False)
+# Converting the statistic columns to integer : 
+integer_columns = ["PTS", "TRB", "AST", "STL", "BLK", "FG", "_3P", "FT","_3PA","FTA","ORB","DRB","TOV","PF","plus_minus"]
+for col in integer_columns:
+    nba_db[col] = pd.to_numeric(nba_db[col], errors='coerce').fillna(0).astype(int)
+#Suming the bonus columns for the fantasy score : 
+fantasy_bonus_columns = ["PTS", "TRB", "AST", "STL", "BLK", "FG", "_3P", "FT"]
+nba_db["Fantasy_pts_+"] = nba_db[fantasy_bonus_columns].sum(axis=1, skipna=True)
+#Suming the malus columns for the fantasy score : 
+nba_db["Fantasy_pts_-"] = nba_db.apply(lambda x: 
+                                       x["TOV"] + 
+                                       (x["FGA"] - x["FG"]) + 
+                                       (x["_3PA"]-x["_3P"]) + 
+                                       (x["FTA"]-x["FT"]), axis=1).astype(int)
+#Final calcul to have the fantasy TTFL result : 
+nba_db["Fantasy_ttfl"] = nba_db.apply(lambda x: x["Fantasy_pts_+"] - x["Fantasy_pts_-"], axis = 1 ) 
+
+
+# Export the database to a google drive spreedsheet : 
+#Convert date to string and NA to '' (necessary to transfer the data to a drive sheet): 
+nba_db['date'] = nba_db['date'].astype(str)
+nba_db = nba_db.fillna('')
+
+
+# Open the Google Sheets document by URL
+spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1Rgy6ZGjkT99PvYjhbRdSGeSDgMLXDyO62eaHHVOC_Nk/edit#gid=0')
+# Select the worksheet to which you want to write the data
+worksheet = spreadsheet.get_worksheet(0)  # Get the first worksheet (index 0)
+# Clear the specified range
+worksheet.clear()
+# Get the column names from the DataFrame
+column_names = nba_db.columns.tolist()
+# Insert the column names as the first row in the worksheet
+worksheet.insert_rows([column_names], 1)
+# Export the DataFrame data to Google Sheets starting from the second row (row 2)
+data_to_insert = nba_db.values.tolist()
+worksheet.insert_rows(data_to_insert, 2)
 print("Script ended")
 print(datetime.now() - startTime)

@@ -5,7 +5,7 @@ from datetime import datetime
 startTime = datetime.now()
 
 season = 2024
-TEAMS_DIR = r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\teams' # Final destination for the player lists .html files
+TEAMS_DIR = r'C:\Users\aureb\OneDrive - Sport-Data\Documents\COURS\DATABIRD\PROJECT\data\teams' # Final destination for the player lists .html files
 teams = {'full_name': ['ATLANTA HAWKS', 'BOSTON CELTICS', 'BROOKLYN NETS',"CHICAGO BULLS",
                       "CHARLOTTE HORNETS","CLEVELAND CAVALIERS","DALLAS MAVERICKS","DENVER NUGGETS",
                       "DETROIT PISTONS","GOLDEN STATE WARRIORS","HOUSTON ROCKETS","INDIANA PACERS","LOS ANGELES CLIPPERS"

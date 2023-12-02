@@ -1,4 +1,3 @@
-
 import asyncio
 import os
 import time
@@ -7,15 +6,29 @@ from playwright.async_api import async_playwright
 import requests
 import re
 import pandas as pd 
+from google.cloud import bigquery
+import asyncio
+from pandas_gbq import to_gbq
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 startTime = datetime.now()
 
-#Creating some variables : 
+## Identifying with google API to write the final database to a google sheet : 
+    # Specify the path to your credentials JSON file
+json_keyfile =  "C:/Users/aureb/OneDrive - Sport-Data/Documents/COURS/DATABIRD/PROJECT/imposing-bee-389610-823a1fac476d.json"
+    # Define the scope
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    # Authenticate using the credentials
+creds = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
+client = gspread.authorize(creds)
+
+## Creating variables : 
 SEASONS = list(range(2024, 2025))#Select the NBA season(s) to scrape
-STANDINGS_DIR = r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\standings' #Final destination for the seasons .html files
-GAMES_DIR = r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\games' # Final destination for the games .html files
+STANDINGS_DIR = r'C:\Users\aureb\OneDrive - Sport-Data\Documents\COURS\DATABIRD\PROJECT\data\standings' #Final destination for the seasons .html files
+GAMES_DIR = r'C:\Users\aureb\OneDrive - Sport-Data\Documents\COURS\DATABIRD\PROJECT\data\games' # Final destination for the games .html files
 
-
+## Creating a function to record the html page with playwright : 
 async def get_html(url, selector, sleep=5, retries=3):
     """Function to get html links with Playwright, using Chromium browser
     imput : URL 
@@ -36,8 +49,16 @@ async def get_html(url, selector, sleep=5, retries=3):
         else:
             break
     return html
-#Creating a function to get the season resume by month for each season in the variable SEASONS : 
+##Creating a function to get the season resume by month for each season in the variable SEASONS : 
 async def scrape_season(season):
+    # Deleting the files in the standings folder ; 
+    standings_files = os.listdir(STANDINGS_DIR)
+    for f in standings_files:
+        file_path = os.path.join(STANDINGS_DIR, f)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        else:
+            print("The file does not exist")
     url = f"https://www.basketball-reference.com/leagues/NBA_{season}_games.html"
     html = await get_html(url, "#content .filter")
     soup = BeautifulSoup(html, 'html.parser')
@@ -53,16 +74,7 @@ async def scrape_season(season):
         with open(save_path, "w+") as f:
             f.write(html)
 
-# Delete the files in the standings folder
-standings_files = os.listdir(STANDINGS_DIR)
-for f in standings_files:
-    file_path = os.path.join(STANDINGS_DIR, f)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-    else:
-        print("The file does not exist")
-
-#Creating a Fonction to scrap all the "Schedule and result" websites by month and by season and save them into the folder
+##Creating a Fonction to scrap all the "Schedule and result" websites by month and by season and save them into the folder
 async def scrape_game(standings_file):
     with open(standings_file, 'r') as f:
         html = f.read()
@@ -83,7 +95,7 @@ async def scrape_game(standings_file):
         with open(save_path, "w+", encoding='utf-8') as f:
             f.write(html)
    
-#Creating a function to execute the scraoe season function for all the seasons defined : 
+##Creating a function to execute the scrape season and scrape game function for all the seasons defined : 
 async def scrape_all_seasons():
     for season in SEASONS:
         await scrape_season(season)
@@ -96,10 +108,11 @@ async def scrape_all_seasons():
             file_path = os.path.join(STANDINGS_DIR, f)
             await scrape_game(file_path)
 
-# create a function to have the calendar for each season defined : 
-def nba_calendar(SEASONS,standings_files,STANDINGS_DIR):
+## creating a function to have the calendar for each season defined : 
+def nba_calendar(SEASONS,STANDINGS_DIR):
     game_id_list = []
     teams = []
+    standings_files = os.listdir(STANDINGS_DIR)
     for season in SEASONS:#loop to execute only one season
         files = [s for s in standings_files if str(season) in s]
         for f in files:#loop to go to each html file in the folder ""
@@ -128,13 +141,20 @@ def nba_calendar(SEASONS,standings_files,STANDINGS_DIR):
     NBA_Calendar["Arena"] = NBA_Calendar["Arena"].str[0]
     #Convert "Date" column into date format : 
     NBA_Calendar["Date"]=NBA_Calendar["Date"].apply(lambda x: datetime.strptime(x, '%a, %b %d, %Y').strftime('%Y-%m-%d'))
-    # Save the dataframe to a CSV file : 
-    NBA_Calendar.to_csv(r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\NBA_Calendar.csv', index=False)
+    # Export the injury _df to a google drive spreedsheet :
+    NBA_Calendar["Date"] =  NBA_Calendar["Date"].astype(str)
+    spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1X_p-4PQN8prHiw4nKykEx7pRLqH44uXRbVJKgZokDu0/edit#gid=0')# Open the Google Sheets document by URL
+    worksheet = spreadsheet.get_worksheet(0) #Select the worksheet to which you want to write the data
+    worksheet.clear() # Clear the specified range
+    column_names = NBA_Calendar.columns.tolist() # Get the column names from the DataFrame
+    worksheet.insert_rows([column_names], 1)  # Insert the column names as the first row in the worksheet
+    data_to_insert = NBA_Calendar.values.tolist() # Export the DataFrame data to Google Sheets
+    worksheet.insert_rows(data_to_insert, 2) # starting from the second row (row 2)
 
 
 if __name__ == "__main__":
     asyncio.run(scrape_all_seasons())
-    nba_calendar(SEASONS, standings_files, STANDINGS_DIR)
+    nba_calendar(SEASONS,STANDINGS_DIR)
     print("Script ended")
     print(datetime.now() - startTime)
 

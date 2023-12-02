@@ -9,10 +9,19 @@ import unidecode
 import io
 import asyncio
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 startTime = datetime.now()
+# Specify the path to your credentials JSON file
+json_keyfile = "C:/Users/aureb/OneDrive - Sport-Data/Documents/COURS/DATABIRD/PROJECT/imposing-bee-389610-823a1fac476d.json"
+# Define the scope
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+# Authenticate using the credentials
+creds = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
+client = gspread.authorize(creds)
 
 season = 2024
-TEAMS_DIR = r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\teams' # direction of the .html team files
+TEAMS_DIR = r'C:\Users\aureb\OneDrive - Sport-Data\Documents\COURS\DATABIRD\PROJECT\data\teams' # direction of the .html team files
 teams = os.listdir(TEAMS_DIR) # list of all the html files with the team name + .html (Ex : 'ATL.html')
 teams = [os.path.join(TEAMS_DIR, f) for f in teams if f.endswith(".html")] # join the directions to have the full direction of each team file
 
@@ -96,15 +105,34 @@ async def main():
     roster_df["Player"] = roster_df["Player"].apply(unidecode.unidecode) # Spelling issue for Russian special caracters : 
     roster_df['Player'] = roster_df['Player'].str.replace(r'\s*\(TW\)\s*$', '', regex=True)# Remove "(TW)" from the 'Player' column
     roster_df.index = np.arange(1, len(roster_df) + 1)# index reset
+    ## replace specific player names : 
+    roster_df['Player'].replace('KJ Martin', 'Kenyon Martin Jr.', inplace=True)
 
     #Cleaning the injury dataframe : 
     injury_df[['Type', 'Details']] = injury_df["Description"].str.split('-', n=1, expand=True) #Split the Description column in 2 columns to have the type and details
     injury_df =  injury_df.drop(columns = ['Description'])#Remove Description column 
     injury_df["Update"] = pd.to_datetime(injury_df["Update"], format='%a, %b %d, %Y') #date to date format
     injury_df.index = np.arange(1, len(injury_df) + 1)# index reset
-    # Export the database into a csv file :
-    roster_df.to_csv(r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\roster_df.csv', index=False)
-    injury_df.to_csv(r'C:\Users\aureb\Documents\COURS\DATABIRD\PROJECT\data\injury_df.csv', index=False)
+
+    # Export the roster _df to a google drive spreedsheet :
+    roster_df["Birth Date"] =  roster_df["Birth Date"].astype(str)
+    roster_df = roster_df.fillna('')
+    spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1KRqGNSVsHU_VQOBplL_-V4BXkdRKhGkjRUi0qFb1pYc/edit#gid=0')# Open the Google Sheets document by URL
+    worksheet = spreadsheet.get_worksheet(0) #Select the worksheet to which you want to write the data
+    worksheet.clear() # Clear the specified range
+    column_names = roster_df.columns.tolist() # Get the column names from the DataFrame
+    worksheet.insert_rows([column_names], 1)  # Insert the column names as the first row in the worksheet
+    data_to_insert = roster_df.values.tolist() # Export the DataFrame data to Google Sheets
+    worksheet.insert_rows(data_to_insert, 2) # starting from the second row (row 2)
+    # Export the injury _df to a google drive spreedsheet :
+    injury_df["Update"] =  injury_df["Update"].astype(str)
+    spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1O8PrMTxk34qh872XMlTyfQJdqfajtuJxcuT_WLYy_DE/edit#gid=0')# Open the Google Sheets document by URL
+    worksheet = spreadsheet.get_worksheet(0) #Select the worksheet to which you want to write the data
+    worksheet.clear() # Clear the specified range
+    column_names = injury_df.columns.tolist() # Get the column names from the DataFrame
+    worksheet.insert_rows([column_names], 1)  # Insert the column names as the first row in the worksheet
+    data_to_insert = injury_df.values.tolist() # Export the DataFrame data to Google Sheets
+    worksheet.insert_rows(data_to_insert, 2) # starting from the second row (row 2)
 
 
 

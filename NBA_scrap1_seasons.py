@@ -4,7 +4,6 @@ import time
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 import pandas as pd 
-import asyncio
 from pandas_gbq import to_gbq
 from datetime import datetime
 import gspread

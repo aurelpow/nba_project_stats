@@ -210,13 +210,14 @@ def write_google_sheet(client,url,df_to_write):
    data_to_insert = df_to_write.values.tolist()
    worksheet.insert_rows(data_to_insert, 2)
 async def main():
-    # Export the database to a google drive spreedsheet :
+    # Run function and export the nba_df database to a google drive spreedsheet :
     nba_db = nba_df(box_scores)
-    #Convert date to string and NA to '' (necessary to transfer the data to a drive sheet): 
+        #Convert date to string and NA to '' (necessary to transfer the data to a drive sheet): 
     nba_db['date'] = nba_db['date'].astype(str)
     nba_db = nba_db.fillna('')
     url_nba_db_sheet = 'https://docs.google.com/spreadsheets/d/1Rgy6ZGjkT99PvYjhbRdSGeSDgMLXDyO62eaHHVOC_Nk/edit#gid=0'
     write_google_sheet(client,url_nba_db_sheet,nba_db)
+    # Run function and export the nba_calendar database to a google drive spreedsheet :
     nba_calendar_db = nba_calendar(SEASONS,STANDINGS_DIR)
     url_nba_calendar_sheet = 'https://docs.google.com/spreadsheets/d/1X_p-4PQN8prHiw4nKykEx7pRLqH44uXRbVJKgZokDu0/edit#gid=0'
     write_google_sheet(client,url_nba_calendar_sheet,nba_calendar_db)

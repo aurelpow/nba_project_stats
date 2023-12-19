@@ -76,73 +76,80 @@ def players_deviations(nba_db,player_db):
   d = {'Players':player_list_final,'fantasy_dev':fantasy_deviation_l}
   return pd.DataFrame(d)
 
-#Create a function to have the prediction average :
-def Average(lst):
-    return statistics.mean(lst)
 
 #Creating a function to have the projection of the fantasy for each player :
-def player_projections(nba_db, player_db, full_season_window=30, rolling_window=10):
-    player_column = player_db.col_values(player_db.find("Player").col)# Get the values from the 'Player' column
-    player_list = player_column[1:]# Remove the header row
-   # Cleaning and preparing data
-    nba_db = nba_db.fillna(0)
-    nba_db = nba_db[nba_db['MP'] != 0]  # Remove rows where 'MP' is 0
-    #Creating 2 empty lists : 
+def get_player_projections(player_db,  features, target,time_window):
+    if len(player_db) <= 1:
+        # If the dataset is too small, use the entire dataset for training
+        X = player_db[features]
+        y = player_db[target]
+        X_train, y_train = X, y
+    else:
+        player_db = player_db.sort_values(by='date', ascending=True).tail(time_window)
+        X = player_db[features]
+        y = player_db[target]
+        X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+
+    # Make predictions on the entire dataset
+    y_pred = model.predict(X)
+    average_projection = round(np.mean(y_pred), 2)
+
+    return average_projection
+
+
+def player_projections(nba_db, player_db):
+    player_list = player_db.col_values(player_db.find("Player").col)[1:]
+
+    # Define features for Fantasy_pts_+
+    features_positive = ['MP','PTS', 'TRB', 'AST', 'STL', 'BLK', 'FT', '_3P', 'FT']
+    # Create columns for Fantasy_pts_-
+    nba_db['Field_goals_missed'] = nba_db['FGA'] - nba_db['FG']
+    nba_db['Free_throws_missed'] = nba_db['FTA'] - nba_db['FT']
+    nba_db['_3_points_missed'] = nba_db['_3PA'] - nba_db['_3P']
+
+    # Define features for Fantasy_pts_-
+    features_negative = ['MP','TOV', 'Field_goals_missed', '_3_points_missed', 'Free_throws_missed']
+
     projections_full_season = []
     projections_last_10_games = []
-    projections_last_5_games = []
     player_list_final = []
-    # Starting the loop to get the projection for each player
+
     for p in tqdm(player_list):
         if p in list(nba_db["player_name"]):
-            if list(nba_db["player_name"]).count(p) > 1:
-                player_list_final.append(p)
-                player_filter = nba_db["player_name"] == p
-                player_db = nba_db[player_filter]
-                player_db = player_db.sort_values(by='date', ascending=True)
-                # Sample Data for all the season :
-                X = list(zip(player_db['Fantasy_pts_+'],player_db['Fantasy_pts_-']))
-                y = list(player_db["Fantasy_ttfl"])
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= None, random_state=42)
-                # Create and train the linear regression model
-                model = LinearRegression()
-                model.fit(X_train, y_train)
-                # Make predictions on the test set
-                y_pred = model.predict(X_test)
-                projections_full_season.append(round(Average(y_pred),2))
-                # Sample Data for the last 10 games :
-                player_filter = nba_db["player_name"] == p
-                player_db = nba_db[player_filter]
-                player_db = player_db.sort_values(by='date', ascending=True).tail(10)
-                X = list(zip(player_db['Fantasy_pts_+'],player_db['Fantasy_pts_-']))
-                y = list(player_db["Fantasy_ttfl"])
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= None, random_state=42)
-                # Create and train the linear regression model
-                model = LinearRegression()
-                model.fit(X_train, y_train)
-                # Make predictions on the test set
-                y_pred = model.predict(X_test)
-                projections_last_10_games.append(round(Average(y_pred),2))
-                 # Sample Data for the last 5 games :
-                player_filter = nba_db["player_name"] == p
-                player_db = nba_db[player_filter]
-                player_db = player_db.sort_values(by='date', ascending=True).tail(5)
-                X = list(zip( player_db['Fantasy_pts_+'],player_db['Fantasy_pts_-']))
-                y = list(player_db["Fantasy_ttfl"])
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= None, random_state=42)
-                # Create and train the linear regression model
-                model = LinearRegression()
-                model.fit(X_train, y_train)
-                # Make predictions on the test set
-                y_pred = model.predict(X_test)
-                projections_last_5_games.append(round(Average(y_pred),2))
+            player_list_final.append(p)
+            
+            # Get the subset of nba_db for the current player
+            player_subset = nba_db[nba_db["player_name"] == p]
+            
+            if len(player_subset) == 0:
                 continue
-            continue
-    d = {'Players': player_list_final, 
+            
+            # Predict Fantasy_pts_+ and Fantasy_pts_-
+            projection_positive = get_player_projections(player_subset, features_positive, 'Fantasy_pts_+', len(player_subset))
+            projection_negative = get_player_projections(player_subset, features_negative, 'Fantasy_pts_-', len(player_subset))
+            projection_season = projection_positive - projection_negative
+            projections_full_season.append(projection_season)
+            
+            if len(player_subset) >= 10:
+                # Predict for the last 10 games if available
+                projection_last_10_pos = get_player_projections(player_subset, features_positive, 'Fantasy_pts_+', 10)
+                projection_last_10_neg = get_player_projections(player_subset, features_negative, 'Fantasy_pts_-', 10)
+                projection_last_10 = projection_last_10_pos - projection_last_10_neg
+            else:
+                # If less than 10 games, use the same projection as full season
+                projection_last_10 = projection_season
+
+            projections_last_10_games.append(projection_last_10)
+
+    d = {'Players': player_list_final,
          'Projections_full': projections_full_season,
-         'Projections_last_10_games' : projections_last_10_games,
-         'Projections_last_5_games' : projections_last_5_games}
+         'Projections_last_10_games': projections_last_10_games}
+
     return pd.DataFrame(d)
+
 
 def teams_impact_by_position(nba_db,player_db):
     player_db = pd.DataFrame(player_db.get_all_records())
@@ -196,7 +203,6 @@ async def main():
    player_db = get_PLAYER_db("NBA_PLAYERS",json_keyfile,scope)
    deviations_df = players_deviations(nba_db, player_db)
    projections_df = player_projections(nba_db,player_db)
-   print(projections_df)
    impact_df = teams_impact_by_position(nba_db,player_db)
    url_deviation_sheet = 'https://docs.google.com/spreadsheets/d/14y6ZDDybilliRA946WF0ixNb0AowC_gEIZh8jhWKpMY/edit#gid=0'
    write_google_sheet(client,url_deviation_sheet,deviations_df)

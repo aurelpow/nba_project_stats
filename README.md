@@ -37,3 +37,7 @@ This script is calculating some KPIs and put them into dataframes saved into sev
   The final result is a table with 3 rows per team (corresponding to the 3 positions Guard, Forward and Center) and a percentage based on the   
   opponents' statistics, allowing you to judge whether the team is above or below the defensive level of the other teams in the league. A negative 
   impact means that the team in question defends well against players in the position under analysis, and the opposite for a positive impact. 
+
+**- NBA_test_models : **
+This script measure the average size of the mistakes in a collection of predictions(fantasy, points, rebounds etc.)
+To do this we filter the last database scrapted with removing the last game played for each player, after that we compare with stats for the last nba games date played 

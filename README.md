@@ -20,7 +20,7 @@ player_name	MP	FG	FGA	FG_per	_3P	_3PA	_3P_per	FT	FTA	FT_per	ORB	DRB	TRB	AST	STL	
 **NBA_scrap3_teams :**
 This script is saving the Team "Roster and Stats" page for each NBA teams(30) in a local windows folder defined by the variable "TEAMS_DIR".
 
-**- NBA_scrap4_roster_injuries : **
+**NBA_scrap4_roster_injuries :**
 This script is scraping 2 tables (Roster and Injury Report) from the team .html files saved in the teams folder.
 After that we created some functions to create final dataframes. These df are saved into a google drive folder.
 

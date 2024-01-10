@@ -78,7 +78,7 @@ async def scrape_game(standings_file):
     soup = BeautifulSoup(html, 'html.parser')
     links = soup.find_all("a")
     hrefs = [l.get('href') for l in links]
-    box_scores = [f"https://www.basketball-reference.com{l}" for l in hrefs if l and "boxscore" in l and '.html' in l]
+    box_scores = [f"https://www.basketball-reference.com{l}" for l in hrefs if l and "boxscores" in l and '.html' in l]
 
     for url in box_scores:
         save_path = os.path.join(GAMES_DIR, url.split("/")[-1])
@@ -92,7 +92,7 @@ async def scrape_game(standings_file):
             f.write(html)
    
 ##Creating a function to execute the scrape season and scrape game function for all the seasons defined : 
-async def scrape_all_seasons():
+async def scrape_all_games():
     for season in SEASONS:
         await scrape_season(season)
 
@@ -105,7 +105,7 @@ async def scrape_all_seasons():
             await scrape_game(file_path)
 
 if __name__ == "__main__":
-    asyncio.run(scrape_all_seasons())
+    asyncio.run(scrape_all_games())
     print("Script ended")
     print(datetime.now() - startTime)
 

@@ -70,7 +70,18 @@ def read_injury(soup):
             return df
     except ValueError:
         return None
-    
+
+# Function to convert the Uniform number column to int64(and handle two numbers for one same player)
+def convert_number(value):
+    if pd.isna(value):
+        return np.nan
+    if isinstance(value, str) and ',' in value:
+        # Extract the first number if there are two separated by a comma
+        return int(value.split(',')[0])# we keep the first number
+    else:
+        # Convert the single number to int
+        return int(value)
+   
 async def main():
     fullRoster = [] # empty list for the scores for each team
     fullInjuryreport = [] # empty list for the boxscores
@@ -96,7 +107,7 @@ async def main():
     roster_df = pd.concat(fullRoster) # Convert list to dataframe with Pandas
     injury_df = pd.concat(fullInjuryreport) # Convert list to dataframe with Pandas
     #Cleaning the roster dataframe : 
-    roster_df["Number"] = roster_df["Number"].fillna(0).astype(np.int64)# Convert player numbers to float64 in int64
+    roster_df['Number'] = roster_df['Number'].apply(convert_number).fillna(0).astype(np.int64)# Convert player numbers applying the function "convert_number"
     roster_df["Wt"] = roster_df["Wt"].apply(lambda x : round(x*0.453592,0)).fillna(0).astype(np.int64) #convert weight from pounds to kilos  
     conversions = [30.48, 2.54] #Create a variable to have the conversion from foot to centimeters 
     roster_df['Ht'] = roster_df['Ht'].apply(lambda x: round(pd.Series(map(int, x.split('-'))).dot(conversions),0)).fillna(0).astype(np.int64) #convert foot to centimeters using the conversion variable

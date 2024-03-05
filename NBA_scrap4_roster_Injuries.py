@@ -128,6 +128,7 @@ async def main():
     # Export the roster _df to a google drive spreedsheet :
     roster_df["Birth Date"] =  roster_df["Birth Date"].astype(str)
     roster_df = roster_df.fillna('')
+    roster_df = roster_df.drop_duplicates()
     spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1KRqGNSVsHU_VQOBplL_-V4BXkdRKhGkjRUi0qFb1pYc/edit#gid=0')# Open the Google Sheets document by URL
     worksheet = spreadsheet.get_worksheet(0) #Select the worksheet to which you want to write the data
     worksheet.clear() # Clear the specified range
@@ -137,6 +138,7 @@ async def main():
     worksheet.insert_rows(data_to_insert, 2) # starting from the second row (row 2)
     # Export the injury _df to a google drive spreedsheet :
     injury_df["Update"] =  injury_df["Update"].astype(str)
+    injury_df = injury_df.drop_duplicates(subset=['Details'], keep='last')
     spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1O8PrMTxk34qh872XMlTyfQJdqfajtuJxcuT_WLYy_DE/edit#gid=0')# Open the Google Sheets document by URL
     worksheet = spreadsheet.get_worksheet(0) #Select the worksheet to which you want to write the data
     worksheet.clear() # Clear the specified range

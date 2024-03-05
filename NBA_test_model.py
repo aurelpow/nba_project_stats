@@ -12,6 +12,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 
+#Create a function to can read sheet from a google drive folder with JSON file:
 def authenticate_google_sheet(json_keyfile, scope):
     creds = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
     with warnings.catch_warnings():
@@ -19,6 +20,7 @@ def authenticate_google_sheet(json_keyfile, scope):
         client = gspread.authorize(creds)
     return client
 
+#Create a function to get the full stats database we scrapped, built and wrote into a google sheet : 
 def get_nba_db(sheet_name,client):
     spreadsheet = client.open(sheet_name)
     # Get the first (and presumably only) sheet in the spreadsheet
@@ -26,6 +28,7 @@ def get_nba_db(sheet_name,client):
     # Convert the sheet data to a Pandas DataFrame
     return pd.DataFrame(worksheet.get_all_records())
 
+#Create a function to get the players list we scrapped, built and wrote into a google sheet :
 def get_player_db(sheet_name,client):
     # Open the Google Sheet by title
     spreadsheet = client.open(sheet_name)
@@ -33,6 +36,7 @@ def get_player_db(sheet_name,client):
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
 
+#Create a function to write into a google sheet without removing the existing data: 
 def write_to_google_sheet_add(client, url, df_to_write):
     # Open the Google Sheets document by URL
     spreadsheet = client.open_by_url(url)
@@ -62,9 +66,8 @@ def write_to_google_sheet_add(client, url, df_to_write):
     worksheet.add_rows(len(data_to_insert))
 
     # Write the new data to the worksheet
-    worksheet.insert_rows(data_to_insert, last_row)
+    worksheet.insert_rows(data_to_insert, last_row)   
 
-    
 #Create a function to have the deviation for each player
 def calculate_deviations(nba_db,player_db):
   player_column = player_db.col_values(player_db.find("Player").col)# Get the values from the 'Player' column
@@ -107,7 +110,7 @@ def calculate_deviations(nba_db,player_db):
   d = {'Players':player_list_final,'fantasy_dev':fantasy_deviation_l, 'stats_dev': stats_deviation_l}
   return pd.DataFrame(d)
 
-#Creating a function to have the projection of the fantasy for each player :
+#Creating a function that will be used to calculate projections :
 def get_player_projections(player_db,  features, target,time_window):
     if len(player_db) <= 1:
         # If the dataset is too small, use the entire dataset for training
@@ -118,7 +121,7 @@ def get_player_projections(player_db,  features, target,time_window):
         player_db = player_db.sort_values(by='date', ascending=True).tail(time_window)
         X = player_db[features]
         y = player_db[target]
-        X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, _, y_train, _ = train_test_split(X, y, test_size=0.15, random_state=42)
 
     model = LinearRegression()
     model.fit(X_train, y_train)
@@ -129,6 +132,7 @@ def get_player_projections(player_db,  features, target,time_window):
 
     return average_projection
 
+#Creating a function to calculate fantasy projections: 
 def calculate_fantasy_projections(nba_db, player_db):
     player_list = player_db.col_values(player_db.find("Player").col)[1:]
 
@@ -179,10 +183,15 @@ def calculate_fantasy_projections(nba_db, player_db):
 
     return pd.DataFrame(d)
 
+#Creating a function to calculate the defense impact of each team for each player positions(G,F,C):
 def calculate_team_impact(nba_db,player_db):
     player_db = pd.DataFrame(player_db.get_all_records())
+    # Sort the nba_db by date before filtering
+    nba_db_sorted = nba_db.sort_values(by='date')
+    # Filter the nba_db with the last 12 games for each team
+    last_12_games = nba_db_sorted.groupby('date').tail(45)
    # JOIN the two databases :
-    nba_players_db = pd.merge(nba_db,player_db, left_on = ["player_name"], right_on = ["Player"])
+    nba_players_db = pd.merge(last_12_games,player_db, left_on = ["player_name"], right_on = ["Player"])
     # Clean up the database removing the NAN, only stats from 2022-2023 season :
     final_db = nba_players_db[nba_players_db['MP'].notna()]
     final_db = final_db[final_db["MP"] >= 25 ]
@@ -214,8 +223,9 @@ def calculate_team_impact(nba_db,player_db):
         df_filtered["assists_impact"] = (df_filtered["assists_mean"]- df_filtered["assists_mean"].mean() ) / df_filtered["assists_mean"]         
         # Add the modified DataFrame to the final DataFrame
         df = pd.concat([df, df_filtered])
-    return df
+    return df  
 
+#Creating a function to evaluate the predictions with real data:
 def evaluate_projections(predictions, actual):
     # Convert predictions and actual to NumPy arrays if they are Pandas Series
     if isinstance(predictions, pd.Series):
@@ -225,6 +235,7 @@ def evaluate_projections(predictions, actual):
 
     return mean_absolute_error(actual, predictions)
 
+#Creating the main function of the test_model: 
 def test_model(nba_db,player_db):
     # Convert the 'date' column to datetime
     nba_db['date'] = pd.to_datetime(nba_db['date'])
@@ -268,8 +279,6 @@ def test_model(nba_db,player_db):
     # Create a DataFrame with the results
     result_df = pd.DataFrame({"Date": [date_column], "MAE": mae })
     return result_df
-
-            
    
 async def main():
     startTime = datetime.now()

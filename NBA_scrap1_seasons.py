@@ -92,7 +92,7 @@ async def scrape_game(standings_file):
             f.write(html)
    
 ##Creating a function to execute the scrape season and scrape game function for all the seasons defined : 
-async def scrape_all_games():
+async def scrape_all_seasons():
     for season in SEASONS:
         await scrape_season(season)
 
@@ -105,7 +105,7 @@ async def scrape_all_games():
             await scrape_game(file_path)
 
 if __name__ == "__main__":
-    asyncio.run(scrape_all_games())
+    asyncio.run(scrape_all_seasons())
     print("Script ended")
     print(datetime.now() - startTime)
 

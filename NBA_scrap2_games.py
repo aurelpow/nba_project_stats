@@ -209,6 +209,7 @@ def write_google_sheet(client,url,df_to_write):
     # Export the DataFrame data to Google Sheets starting from the second row (row 2)
    data_to_insert = df_to_write.values.tolist()
    worksheet.insert_rows(data_to_insert, 2)
+
 async def main():
     # Run function and export the nba_df database to a google drive spreedsheet :
     nba_db = nba_df(box_scores)
@@ -221,6 +222,7 @@ async def main():
     nba_calendar_db = nba_calendar(SEASONS,STANDINGS_DIR)
     url_nba_calendar_sheet = 'https://docs.google.com/spreadsheets/d/1X_p-4PQN8prHiw4nKykEx7pRLqH44uXRbVJKgZokDu0/edit#gid=0'
     write_google_sheet(client,url_nba_calendar_sheet,nba_calendar_db)
+    
 if __name__ == "__main__":
     asyncio.run(main())
     print("Script ended")
